@@ -19,7 +19,9 @@ This node is a utility to help in the use of marker matches produced by third-pa
 Unfortunately the native Meshroom support for marker detection is lacking important parameters, and hard to predict.
 Currently there is no way to manually register markers on images to enhance the reconstruction and georeferencing.
 
-This node reads a formatted CSV file containing the data of markers.
+This node reads a formatted CSV file containing the data of markers, and produces cctag3 or cctag4 feature descriptors.
+CCTag3 and 4 markers are represented by their single center point, and they are supported in both the Windows and Linux versions of Meshroom.
+Practically any marker can be passed off as a CCTag marker, provided that its center point can be determined.
 Each line of the CSV must define 1 marker on 1 image.
 
 CSV format:
