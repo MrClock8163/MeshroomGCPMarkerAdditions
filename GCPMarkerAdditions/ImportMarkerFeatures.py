@@ -15,8 +15,22 @@ class ImportMarkerFeatures(desc.Node):
     cpu = desc.Level.NORMAL
     ram = desc.Level.NORMAL
     documentation = '''
-    
+This node is a utility to help in the use of marker matches produced by third-party software.
+Unfortunately the native Meshroom support for marker detection is lacking important parameters, and hard to predict.
+Currently there is no way to manually register markers on images to enhance the reconstruction and georeferencing.
 
+This node reads a formatted CSV file containing the data of markers.
+Each line of the CSV must define 1 marker on 1 image.
+
+CSV format:
+
+    markerX, markerY, imageFileName, markerID, markerSize
+    
+    markerX:            horizontal image coordinate of marker in pixels
+    markerY:            vertical image coordinate of marker in pixels
+    imageFileName:      name of image file including extension (case sensitive)
+    markerID:           unique ID of marker
+    markerSize:         size of marker in pixels
 '''
     
     inputs = [
