@@ -128,25 +128,25 @@ CSV format:
         
         found_markers = {i: 0 for i in list(set([marker[3] for img in images for marker in images[img]]))}
         
-        for i, img in enumerate(images):
-            viewid = lookup.get(img)
-            if not viewid:
-                continue
-            
-            markers = images[img]
-            
+        for i, img in enumerate(lookup):
+            viewid = lookup[img]
             feat = open(os.path.join(chunk.node.output.value, viewid + (".%s.feat" % chunk.node.type.value)), "w")
             desc = open(os.path.join(chunk.node.output.value, viewid + (".%s.desc" % chunk.node.type.value)), "wb")
-            desc.write(struct.pack('<Q', len(markers)))
             
-            for marker in markers:
-                found_markers[marker[3]] += 1
-                feat.write("%.2f %.2f %.4f 0\n" % (marker[0], marker[1], marker[2]))
+            if img in images:
+                markers = images[img]
                 
-                data = bytearray(128)
-                data[marker[3]] = 255
+                desc.write(struct.pack('<Q', len(markers)))
                 
-                desc.write(data)
+                for marker in markers:
+                    found_markers[marker[3]] += 1
+                    feat.write("%.2f %.2f %.4f 0\n" % (marker[0], marker[1], marker[2]))
+                    
+                    data = bytearray(128)
+                    data[marker[3]] = 255
+                    desc.write(data)
+            else:
+                desc.write(struct.pack('<Q', 0))
             
             desc.close()
             feat.close()
