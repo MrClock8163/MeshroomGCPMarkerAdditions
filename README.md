@@ -16,9 +16,13 @@ The nodes folder is located at: `Meshroom\lib\meshroom\nodes`
 
 ## ImportMarkerFeatures node
 
+![](images/ImportMarkerFeatures_node.png)
+
 The built-in marker detection support in Meshroom is rather obviously an afterthought, and as such, not very realiable due to the lack of detection parameters. This node allows to import GCP marker data produced by sources outside Meshroom through a specifically formatted CSV file.
 
-### Attributes:
+### Attributes
+
+![](images/ImportMarkerFeatures_attributes.png)
 
 1. SfMData:
 
@@ -76,9 +80,13 @@ The built-in marker detection support in Meshroom is rather obviously an afterth
 
 ## SfMTransformFromMarkers node
 
+![](images/SfMTransformFromMarkers_node.png)
+
 The SfMTransform node included in Meshroom can be used to georeference the sparse point cloud based on markers, but the marker coordinates need to be specified in a list manually, and the system is not robust in the sense, that the process fails if a specified marker was not found in the reconstructed scene. This node aims to provide a more automated alternative.
 
 ### Attributes
+
+![](images/SfMTransformFromMarkers_attributes.png)
 
 1. Input
 
