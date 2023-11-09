@@ -1,4 +1,4 @@
-__version__ = "1.0"
+__version__ = "2.0"
 
 from meshroom.core import desc
 from meshroom.core import cgroup
@@ -7,19 +7,31 @@ import os.path
 import csv
 import psutil
 import shlex
+import json
 
 class SfMTransformFromMarker(desc.Node):
+    # Commandline call template
     commandLine = "aliceVision_sfmTransform {input} --method from_markers --scale 1.0 --landmarksDescriberTypes {markerTypeValue} {applyScale} {applyRotation} {applyTranslation} {verboseLevel} {output} {outputViewsAndPoses}"
     category = 'Utils'
     documentation = '''
 This is a custom version of the standard SfMTransform node.
 The node allows to read the available marker 3D coordinates from an
 external CSV file.
+
+CSV format:
+
+    markerID, easting, northing, elevation
+    
+    markerID:           unique ID of marker
+    easting:            eastward coordinate of marker in target coordinate system
+    northing:           northward coordinate of marker in target coordinate system
+    elevation:          elevation of marker in target coordinate system
 '''
     cgroupParsed = False
     cmdMem = ''
     cmdCore = ''
     
+    # Constructor copied from the desc.CommandLineNode class
     def __init__(self):
         
         if SfMTransformFromMarker.cgroupParsed is False:
@@ -38,161 +50,131 @@ external CSV file.
 
     inputs = [
         desc.File(
-            name="input",
-            label="Input",
-            description="SfMData file.",
-            value="",
-            uid=[0],
+            name = "input",
+            label = "Input",
+            description = "SfMData file.",
+            value = "",
+            uid = [0]
+        ),
+        desc.ChoiceParam(
+            name = "marker_source",
+            label = "Marker ID Source",
+            description = "Extract marker IDs from SfM data, or specify them manually.",
+            value = "auto",
+            values = ["auto", "manual"],
+            exclusive = True,
+            uid = [0]
         ),
         desc.StringParam(
-            name="markers",
-            label="Markers",
-            description="List of markers IDs to use (comma separated list).",
-            value="",
-            uid=[0], 
+            name = "marker_ids",
+            label = "Marker IDs",
+            description = "List of markers IDs to use (comma separated list).",
+            value = "",
+            enabled = lambda node: node.marker_source.value == "manual",
+            uid = [0]
         ),
         desc.GroupAttribute(
-            name="coordinates",
-            label="Marker Coordinates",
-            description="Marker alignment data",
-            joinChar=" ",
-            groupDesc=[
+            name = "coordinates",
+            label = "Marker Coordinates",
+            description = "Marker alignment data",
+            joinChar = " ",
+            groupDesc = [
                 desc.File(
-                    name="file",
-                    label="Coordinates File",
-                    description="CSV file holding all available marker coordinates (markerID, easting, northing, elevation).",
-                    value="",
-                    uid=[0],
+                    name = "file",
+                    label = "Coordinates File",
+                    description = "CSV file holding all available marker coordinates (markerID, easting, northing, elevation).",
+                    value = "",
+                    uid = [0]
                 ),
                 desc.ChoiceParam(
-                    name="delimiter",
-                    label="Delimiter",
-                    description="Delimiter character used in the input CSV file.",
-                    value="semicolon",
-                    values=["space", "tab", "comma", "colon", "semicolon"],
-                    exclusive=True,
-                    uid=[0],
+                    name = "delimiter",
+                    label = "Delimiter",
+                    description = "Delimiter character used in the input CSV file.",
+                    value = "semicolon",
+                    values = ["space", "tab", "comma", "colon", "semicolon"],
+                    exclusive = True,
+                    uid = [0]
                 ),
                 desc.GroupAttribute(
-                    name="offset",
-                    label="Offset",
-                    description="Offset amount for marker coordinates to recenter mesh and avoid loss of precision.\nIf all coordinates are positive, use negative offset to recenter them.",
-                    joinChar=":",
-                    groupDesc=[
+                    name = "offset",
+                    label = "Offset",
+                    description = "Offset amount for marker coordinates to recenter mesh and avoid loss of precision.\nIf all coordinates are positive, use negative offset to recenter them.",
+                    joinChar = ":",
+                    groupDesc = [
                         desc.FloatParam(name="x", label="x", description="Offset along X axis.", value=0.0, uid=[0], range=(-2.0, 2.0, 1.0)),
                         desc.FloatParam(name="y", label="y", description="Offset along Y axis.", value=0.0, uid=[0], range=(-2.0, 2.0, 1.0)),
                         desc.FloatParam(name="z", label="z", description="Offset along Z axis.", value=0.0, uid=[0], range=(-2.0, 2.0, 1.0)),
-                    ],
-                ),
-            ],
+                    ]
+                )
+            ]
         ),
         desc.ChoiceParam(
-            name="markerType",
-            label="Marker Type",
-            description="Type of marker to use for the transformation.",
-            value="cctag3",
-            values=["cctag3", "cctag4", "tag16h5"],
-            exclusive=True,
-            uid=[0],
+            name = "markerType",
+            label = "Marker Type",
+            description = "Type of marker to use for the transformation.",
+            value = "cctag3",
+            values = ["cctag3", "cctag4", "tag16h5"],
+            exclusive = True,
+            uid = [0]
         ),
         desc.IntParam(
-            name="precision",
-            label="Coordinate Precision",
-            description="Number of decimal places to pass to transformation algorithm",
-            value=3,
-            range=(0, 10, 1),
-            uid=[0],
+            name = "precision",
+            label = "Coordinate Precision",
+            description = "Number of decimal places to pass to transformation algorithm",
+            value = 3,
+            range = (0, 10, 1),
+            uid = [0]
         ),
         desc.BoolParam(
-            name="applyScale",
-            label="Scale",
-            description="Apply scale transformation.",
-            value=True,
-            uid=[0],
+            name = "applyScale",
+            label = "Scale",
+            description = "Apply scale transformation.",
+            value = True,
+            uid = [0]
         ),
         desc.BoolParam(
-            name="applyRotation",
-            label="Rotation",
-            description="Apply rotation transformation.",
-            value=True,
-            uid=[0],
+            name = "applyRotation",
+            label = "Rotation",
+            description = "Apply rotation transformation.",
+            value = True,
+            uid = [0]
         ),
         desc.BoolParam(
-            name="applyTranslation",
-            label="Translation",
-            description="Apply translation transformation.",
-            value=True,
-            uid=[0],
+            name = "applyTranslation",
+            label = "Translation",
+            description = "Apply translation transformation.",
+            value = True,
+            uid = [0]
         ),
         desc.ChoiceParam(
-            name="verboseLevel",
-            label="Verbose Level",
-            description="Verbosity level (fatal, error, warning, info, debug, trace).",
-            value="info",
-            values=["fatal", "error", "warning", "info", "debug", "trace"],
-            exclusive=True,
-            uid=[],
+            name = "verboseLevel",
+            label = "Verbose Level",
+            description = "Verbosity level (fatal, error, warning, info, debug, trace).",
+            value = "info",
+            values = ["fatal", "error", "warning", "info", "debug", "trace"],
+            exclusive = True,
+            uid = []
         ),
     ]
 
     outputs = [
         desc.File(
-            name="output",
-            label="SfMData File",
-            description="Aligned SfMData file.",
-            value=lambda attr: desc.Node.internalFolder + (os.path.splitext(os.path.basename(attr.node.input.value))[0] or "sfmData") + ".abc",
-            uid=[],
+            name = "output",
+            label = "SfMData File",
+            description = "Aligned SfMData file.",
+            value = lambda attr: desc.Node.internalFolder + (os.path.splitext(os.path.basename(attr.node.input.value))[0] or "sfmData") + ".abc",
+            uid = []
         ),
         desc.File(
-            name="outputViewsAndPoses",
-            label="Poses",
-            description="Path to the output SfMData file with cameras (views and poses).",
-            value=desc.Node.internalFolder + "cameras.sfm",
-            uid=[],
-        ),
+            name = "outputViewsAndPoses",
+            label = "Poses",
+            description = "Path to the output SfMData file with cameras (views and poses).",
+            value = desc.Node.internalFolder + "cameras.sfm",
+            uid = []
+        )
     ]
     
-    def raw(self, string):
-        return string[1:-1]
-    
-    def loadCoords(self, filepath, delimiter, offset):
-        if not os.path.isfile(filepath):
-            return {}
-        
-        coordinates = {}
-        
-        with open(filepath, "r") as csvfile:
-            markers = csv.reader(csvfile, delimiter=delimiter, quoting=csv.QUOTE_NONNUMERIC)
-            for item in markers:
-                if len(item) < 3:
-                    print("Could not read GCP coordinates")
-                    continue
-                    
-                coordinates[item[0]] = (item[1] + offset.x.value, item[2] + offset.y.value, item[3] + offset.z.value)
-        
-        return coordinates
-    
-    def lookupMarkers(self, marker_ids, coords):
-        markers = {}
-        for id in marker_ids.split(","):
-            try:
-                id = int(id)
-            except:
-                continue
-            
-            markers[id] = coords[id]
-        
-        return markers
-    
-    def buildMarkers(self, markers, precision = 3):
-        cmd = " --markers"
-        form = f" %d:%.{precision}f,%.{precision}f,%.{precision}f"
-        
-        for item in markers:
-            cmd += form % (item, *markers[item])
-        
-        return cmd
-    
+    # Function copied from the vanilla desc.AVCommandLineNode class
     def buildCommandLine(self, chunk):
         cmdPrefix = ''
         # if rez available in env, we use it
@@ -210,6 +192,73 @@ external CSV file.
         
         return cmd + SfMTransformFromMarker.cmdMem + SfMTransformFromMarker.cmdCore
     
+    # Get the IDs of markers to use for transformation
+    def get_markerids(self, chunk):
+        ids = []
+        
+        # Use the EXE connected to the ConvertSfMFormat node to
+        # extract the reconstructed marker features, and their IDs
+        if chunk.node.marker_source.value == "auto":
+            marker_json = os.path.join(chunk.node.internalFolder, "markers.json")
+            convert_cmd = "aliceVision_convertSfMFormat  --input \"{}\" --describerTypes {} --views False --intrinsics False --extrinsics False --structure True --observations False --verboseLevel info --output \"{}\"".format(chunk.node.input.value, chunk.node.markerType.value, marker_json)
+            chunk.subprocess = psutil.Popen(shlex.split(convert_cmd), stdout=None, stderr=None, cwd=chunk.node.internalFolder)
+            chunk.statThread.proc = chunk.subprocess
+            chunk.subprocess.wait()
+            
+            return_code = chunk.subprocess.returncode
+            if chunk.subprocess.returncode != return_code:
+                raise RuntimeError('Error on node "{}":\n'.format(chunk.name))
+        
+            sfm = []
+            with open(marker_json) as file:
+                sfm = json.load(file).get("structure")
+            
+            
+            if sfm:
+                ids = sorted([int(point["color"][0]) for point in sfm]) # marker IDs are stored as the red color value
+        
+        # Parse the manually set ID list
+        else:
+            for id in chunk.node.marker_ids.value.split(","):
+                try:
+                    id = int(id)
+                except:
+                    continue
+                
+                ids.append(id)
+        
+        return ids
+            
+    # Load 3D marker coordinates from CSV file into dictionary
+    def load_coords(self, filepath, delimiter, offset):
+        if not os.path.isfile(filepath):
+            return {}
+        
+        coordinates = {}
+        
+        with open(filepath, "r") as csvfile:
+            markers = csv.reader(csvfile, delimiter=delimiter, quoting=csv.QUOTE_NONNUMERIC)
+            for item in markers:
+                if len(item) < 4:
+                    print("Could not read marker coordinates")
+                    continue
+                    
+                coordinates[item[0]] = (item[1] + offset.x.value, item[2] + offset.y.value, item[3] + offset.z.value)
+        
+        return coordinates
+    
+    # Format markers parameter for aliceVision_sfmTransform.exe from the supplied
+    # dictionary containing the coordinates
+    def build_markers_param(self, markers, precision = 3):
+        cmd = " --markers"
+        form = f" %d:%.{precision}f,%.{precision}f,%.{precision}f"
+        
+        for item in markers:
+            cmd += form % (item, *markers[item])
+        
+        return cmd
+    
+    # Processing function called by the node
     def processChunk(self, chunk):
         markers_cmd = ""
         
@@ -222,19 +271,24 @@ external CSV file.
         }
         delimiter = delimiters_options[chunk.node.coordinates.delimiter.value]
         
+        # Load marker coordinates and format commandline parameter
         try:
             chunk.logManager.start(chunk.node.verboseLevel.value)
             chunk.logger.info("Loading marker coordinates")
-            coords = self.loadCoords(chunk.node.coordinates.file.value, delimiter, chunk.node.coordinates.offset)
-            markers = self.lookupMarkers(chunk.node.markers.value, coords)
-            markers_cmd = self.buildMarkers(markers, chunk.node.precision.value)
-        
+            
+            marker_ids = self.get_markerids(chunk)
+            print("Marker IDs: ", marker_ids)
+            coords = self.load_coords(chunk.node.coordinates.file.value, delimiter, chunk.node.coordinates.offset)
+            markers = {id: coords[id] for id in marker_ids}
+            markers_cmd = self.build_markers_param(markers, chunk.node.precision.value)
+            
         except Exception as e:
             chunk.logger.error(e)
+            raise
         finally:
             chunk.logManager.end()
             
-        
+        # Call aliceVision_sfmTransform.exe
         try:
             with open(chunk.logFile, 'w') as logF:
                 cmd = self.buildCommandLine(chunk) + markers_cmd
